@@ -1,0 +1,32 @@
+USE [SPReports]
+GO
+
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+IF (EXISTS (SELECT * 
+                 FROM INFORMATION_SCHEMA.TABLES 
+                 WHERE TABLE_SCHEMA = 'dbo' 
+                 AND  TABLE_NAME = 'ProviderAudit'))
+BEGIN
+    DROP TABLE ProviderAudit
+END
+
+
+CREATE TABLE dbo.ProviderAudit(
+	ProviderAuditID INT IDENTITY(1,1) PRIMARY KEY,
+	ProviderID INT NOT NULL,
+	FieldID INT NOT NULL,
+	FieldName VARCHAR(50) NOT NULL,
+	NewValue VARCHAR(100),
+	OldValue VARCHAR(100),
+	UserUpdatingID INT NOT NULL,
+	DateUpdated DATETIME NOT NULL,
+	DateLoaded DATE NOT NULL
+) ON [PRIMARY]
+GO
+
+
