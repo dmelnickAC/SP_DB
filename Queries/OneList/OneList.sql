@@ -3,10 +3,6 @@ SELECT TOP 10
 FROM sp_entry_exit ee
 INNER JOIN sp_client c
 	ON c.client_id = ee.client_id
-LEFT OUTER JOIN da_answer fake
-	ON fake.client_id = ee.client_id
-	AND fake.question_code = 'ISTHISATESTCLIENT'
-	AND fake.val = 'Y'
 --joins for dealing with il510 need to be entered here
 LEFT OUTER JOIN ws_answer cpt
 	ON cpt.entity_id = ee.provider_id
