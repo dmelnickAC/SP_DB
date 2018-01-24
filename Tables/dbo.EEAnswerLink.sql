@@ -21,6 +21,7 @@ CREATE TABLE dbo.EEAnswerLink(
 	entry_exit_id INT NOT NULL,
 	question_code VARCHAR(100) NOT NULL,
 	entry_answer_id INT NULL,
-	exit_answer_id INT NULL
+	exit_answer_id INT NULL,
+	active INT NOT NULL
 ) ON [PRIMARY]
 GO

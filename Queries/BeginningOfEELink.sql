@@ -1,10 +1,12 @@
-USE SPReports
+USE SPReports;
 
+
+BEGIN
 DECLARE @qcode VARCHAR(100)
-DECLARE @i INT = 14
+DECLARE @i INT = 0
 DECLARE @total INT = (SELECT COUNT(*) FROM UpdateQuestions);
 
-WHILE @i < 16 --(@total-20)
+WHILE @i < 24 --(@total-20)
 	BEGIN
 		WITH up AS (SELECT TOP (@total - @i) question_code FROM UpdateQuestions ORDER BY question_code ASC)
 
@@ -15,15 +17,15 @@ WHILE @i < 16 --(@total-20)
 		IF OBJECT_ID('tempdb..#down') IS NOT NULL DROP TABLE #down;
 		IF OBJECT_ID('tempdb..#clients') IS NOT NULL DROP TABLE #clients;
 
-			SELECT
+			SELECT DISTINCT
 				client_id
 				, a.question_code
 			INTO #clients
 			FROM chicago_export.dbo.da_answer a
-			WHERE --(CAST(date_added AS DATE) = DATEADD(DAY,-1,CAST(GETDATE() AS DATE)) OR CAST(date_inactive AS DATE) = DATEADD(DAY,-1,CAST(GETDATE() AS DATE))) AND
-			 question_code = @qcode
+			WHERE --(CAST(date_added AS DATE) >= DATEADD(DAY,-15,CAST(GETDATE() AS DATE)) OR CAST(date_inactive AS DATE) >= DATEADD(DAY,-15,CAST(GETDATE() AS DATE))) AND
+			question_code = @qcode
 
-	INSERT INTO SPReports.dbo.EEAnswerLink (entry_exit_id, question_code, entry_answer_id,exit_answer_id)
+--	INSERT INTO SPReports.dbo.EEAnswerLink (entry_exit_id, question_code, entry_answer_id,exit_answer_id)
 	
 		SELECT
 
@@ -51,7 +53,7 @@ WHILE @i < 16 --(@total-20)
 			ON ee.client_id = c.client_id
 		WHERE ee.active = 't'
 
-	INSERT INTO SPReports.dbo.EERAnswerLink (entry_exit_review_id, question_code, answer_id)
+--	INSERT INTO SPReports.dbo.EERAnswerLink (entry_exit_review_id, question_code, answer_id)
 
 		SELECT
 
@@ -76,3 +78,4 @@ WHILE @i < 16 --(@total-20)
 	SET @i = @i + 1
 END
 
+END

@@ -1,3 +1,4 @@
+USE SPReports
 
 --fake clients
 SELECT client_id FROM chicago_export.dbo.da_answer fake
@@ -11,13 +12,25 @@ WHERE p.active = 't'
 AND p.operational = 't'
 AND p.spuser = 't'
 --AND providerlevel >= 3
-AND p.provider_id NOT IN (1280,1281,1341,1391,1303,1315,1314,1416,1408,1420,1421,1422,1423)
+AND p.provider_id NOT IN (1280,1281,1341,1391,1303,1315,1314,1416,1408,1420,1421,1422,1423,1480,1507)
 AND p.program_type_code IS NOT NULL
 AND p.name NOT LIKE 'All Chicago%'
 
+--top red section eliminating street outreach and ssvf if they're not in il-510
+SELECT ee.entry_exit_id FROM chicago_export.dbo.sp_entry_exit ee
+INNER JOIN EEAnswerLink eeal_loc
+	ON eeal_loc.entry_exit_id = ee.entry_exit_id
+	AND eeal_loc.question_code = 'HUD_COCCLIENTLOCATION'
+	AND eeal_loc.active = 1
+INNER JOIN chicago_export.dbo.da_answer loc
+	ON loc.answer_id = eeal_loc.entry_answer_id
+INNER JOIN chicago_export.dbo.sp_provider p
+	ON p.provider_id = ee.provider_id
+WHERE (p.name LIKE '%SSVF%' OR p.program_type_code = 'Street Outreach (HUD)')
+AND ISNULL(loc.val,'IL-510') <> 'IL-510'
 
 --PHwSS providers this query goes with the purple section
-SELECT entity_id FROM chicago_export.dbo.ws_answer
+SELECT entity_id AS provider_id FROM chicago_export.dbo.ws_answer
 WHERE question_code = 'CHICAGOPROGRAMMODEL'
 AND val IN ('Permanent Housing with Short Term Support','Youth Project Based Transitional Housing','Youth Scattered Site Transitional Housing')
 
@@ -58,3 +71,114 @@ INNER JOIN chicago_export.dbo.sp_provider p
 WHERE DATEDIFF(y,ee.entry_date,GETDATE())>365
 AND (p.program_type_code IN ('Day Shelter (HUD)','Other (HUD)','Services Only (HUD)') OR p.provider_id = 1178)
 ORDER BY entry_date DESC
+
+--green section inside red section
+SELECT ee.entry_exit_id FROM chicago_export.dbo.sp_entry_exit ee
+--if provider is 1340, housing status needs to be 1/4
+INNER JOIN chicago_export.dbo.sp_provider p
+	ON p.provider_id = ee.provider_id
+LEFT OUTER JOIN EEAnswerLink eeal_hs
+	ON eeal_hs.entry_exit_id = ee.entry_exit_id
+	AND eeal_hs.question_code = 'SVP_HUD_HOUSINGSTATUS'
+	AND eeal_hs.active = 1
+LEFT OUTER JOIN chicago_export.dbo.da_answer hs
+	ON hs.answer_id = eeal_hs.entry_answer_id
+LEFT OUTER JOIN PHwSS --this is the table that got defined earlier in the query in the purple section
+	ON PHwSS.provider_id = p.provider_id
+WHERE p.program_type_code IN ('some stuff')
+AND (p.provider_id <> 1340 OR hs.val IN ('Category 1 - Homeless (HUD)','Category 4 - Fleeing domestic violence (HUD)'))
+AND PHwSS.provider_id IS NULL
+
+--beige section inside red section
+SELECT ee.entry_exit_id FROM chicago_export.dbo.sp_entry_exit ee
+INNER JOIN chicago_export.dbo.sp_provider p
+	ON  p.provider_id = ee.provider_id
+LEFT OUTER JOIN EEAnswerLink eeal_hs
+	ON eeal_hs.entry_exit_id = ee.entry_exit_id
+	AND eeal_hs.question_code = 'SVP_HUD_HOUSINGSTATUS'
+	AND eeal_hs.active = 1
+LEFT OUTER JOIN chicago_export.dbo.da_answer hs
+	ON hs.answer_id = eeal_hs.entry_answer_id
+LEFT OUTER JOIN EEAnswerLink eeal_youthhs
+	ON eeal_youthhs.entry_exit_id = ee.entry_exit_id
+	AND eeal_youthhs.question_code = 'ONLYANSWERIFAGE24ORUN_1'
+	AND eeal_youthhs.active = 1
+LEFT OUTER JOIN chicago_export.dbo.da_answer youthhs
+	ON youthhs.answer_id = eeal_youthhs.entry_answer_id
+LEFT OUTER JOIN EEAnswerLink eeal_dob
+	ON eeal_dob.entry_exit_id = ee.entry_exit_id
+	AND eeal_dob.question_code = 'SVPPROFDOB'
+	AND eeal_youthhs.active = 1
+LEFT OUTER JOIN chicago_export.dbo.da_answer dob
+	ON dob.answer_id = eeal_dob.entry_answer_id
+WHERE (p.program_type_code IN ('Day Shelter (HUD)','Other (HUD)','Services Only (HUD)') OR p.provider_id = 1178)
+AND (
+		hs.val LIKE 'Category 1 %'
+		OR hs.val LIKE 'Category 2 %'
+		OR hs.val LIKE 'Category 4 %'
+		OR youthhs.val IN ('Homeless','At imminent risk of losing housing','Fleeing domestic violence','At-risk of homelessness','Age 24 or under and unstably housed'))
+AND SPReports.dbo.AgeAtTime(SPReports.dbo.VarcharToDate(dob.val),ee.entry_date) < 25 --once QA is over, change ee.entry_date to getdate()
+
+--blue section for enrollments exited in last 3 months
+SELECT * FROM chicago_export.dbo.sp_entry_exit ee
+INNER JOIN chicago_export.dbo.sp_provider p
+	ON p.provider_id = ee.provider_id
+LEFT OUTER JOIN EEAnswerLink eeal_hs
+	ON eeal_hs.entry_exit_id = ee.entry_exit_id
+	AND eeal_hs.question_code = 'SVP_HUD_HOUSINGSTATUS'
+	AND eeal_hs.active = 1
+LEFT OUTER JOIN chicago_export.dbo.da_answer hs
+	ON hs.answer_id = eeal_hs.entry_answer_id
+WHERE
+	DATEDIFF(y,ee.exit_date,getdate()) < 90
+	AND (
+			ee.reason_leaving NOT IN
+				(
+					'CES: Client not living in Chicago (Not eligible for CES)'
+					,'CES: Client participated in day project only'
+					,'CES: Client is not homeless (should not appear on One List)')
+					OR ee.reason_leaving IS NULL
+				)
+	AND (
+			ee.destination IN
+				(
+					'Emergency shelter, including hotel or motel paid for with emergency shelter voucher (HUD)'
+					,'Place not meant for habitation (HUD)'
+					,'Safe Haven (HUD)'
+					,'Transitional housing for homeless persons (including homeless youth) (HUD)'
+				)
+			OR
+				(
+					(
+						p.program_type_code IN ('Emergency Shelter (HUD)','Safe Haven (HUD)','Transitional housing (HUD)','Street Outreach (HUD)') OR 
+							((hs.val LIKE 'Category 1 %' OR hs.val LIKE 'Category 2 %' OR hs.val LIKE 'Category 4 %') AND
+							p.program_type_code NOT IN
+								(
+									'Homelessness Prevention (HUD)'
+									,'PH - Housing only (HUD)'
+									,'PH - Housing with services (no disability required for entry) (HUD)'
+									,'PH - Permanent Supportive Housing (disability required for entry) (HUD)'
+									,'RETIRED (HUD)'
+								)
+							)
+					) AND ee.destination IN
+						('Client doesn''t know (HUD)'
+						,'Client refused (HUD)'
+						,'Data not collected (HUD)'
+						,'Emergency shelter, including hotel or motel paid for with emergency shelter voucher (HUD)'
+						,'Foster care home or foster care group home (HUD)'
+						,'Hospital or other residential non-psychiatric medical facility (HUD)'
+						,'Hotel or motel paid for without emergency shelter voucher (HUD)'
+						,'Jail, prison or juvenile detention facility (HUD)'
+						,'No exit interview completed (HUD)'
+						,'Place not meant for habitation (HUD)'
+						,'Psychiatric hospital or other psychiatric facility (HUD)'
+						,'Residential project or halfway house with no homeless criteria (HUD)'
+						,'Safe Haven (HUD)'
+						,'Staying or living with family, temporary tenure (e.g., room, apartment or house)(HUD)'
+						,'Staying or living with friends, temporary tenure (e.g., room apartment or house)(HUD)'
+						,'Substance abuse treatment facility or detox center (HUD)'
+						,'Transitional housing for homeless persons (including homeless youth) (HUD)'
+						,'Other (HUD)') --we are going to create a table so we dont have to do this big ole list
+				)
+		)

@@ -20,6 +20,7 @@ CREATE TABLE dbo.EERAnswerLink(
 	EERAnswerLinkID INT IDENTITY(1,1) PRIMARY KEY,
 	entry_exit_review_id INT NOT NULL,
 	question_code VARCHAR(100) NOT NULL,
-	answer_id INT NULL
+	answer_id INT NULL,
+	active INT NOT NULL
 ) ON [PRIMARY]
 GO
