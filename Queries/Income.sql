@@ -16,8 +16,8 @@ SELECT
 	, s.[End Date] AS EndDate
 INTO #recordset
 FROM sp_client c
-INNER JOIN SPReports.dbo.[2018-01-04_StayersStartEndDates] s
---INNER JOIN SPReports.dbo.[2018-01-04_LeaversStartEndDates] s
+INNER JOIN SPReports.dbo.[2018-01-04_StayersStartEndDates_DELETEON20180601] s
+--INNER JOIN SPReports.dbo.[2018-01-04_LeaversStartEndDates_DELETEON20180601] s
 	ON s.ClientUniqueId = c.unique_id
 INNER JOIN da_recordset rs
 	ON rs.client_id = c.client_id
