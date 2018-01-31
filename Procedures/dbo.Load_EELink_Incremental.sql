@@ -1,4 +1,14 @@
 USE SPReports
+USE [SPReports]
+GO
+
+SET ANSI_NULLS OFF
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+CREATE PROCEDURE dbo.Load_EELink_Incremental
+AS
+BEGIN
 
 DECLARE @daysback INT = CASE WHEN DATEPART(WEEKDAY,GETDATE()) = 2 THEN 3 ELSE 1 END
 DECLARE @qcode VARCHAR(100)
@@ -24,7 +34,7 @@ WHILE @i < @total --(@total-20)
 			WHERE (CAST(date_added AS DATE) >= DATEADD(DAY,-1*@daysback,CAST(GETDATE() AS DATE)) OR CAST(date_inactive AS DATE) >= DATEADD(DAY,-1*@daysback,CAST(GETDATE() AS DATE))) AND
 			question_code = @qcode
 
---	INSERT INTO SPReports.dbo.EEAnswerLink (entry_exit_id, question_code, entry_answer_id,exit_answer_id)
+--	INSERT INTO SPReports.dbo.EEAnswerLink (entry_exit_id, question_code, entry_answer_id,exit_answer_id) this stuff is for the initial load
 		IF OBJECT_ID('tempdb..#inc_eeal') IS NOT NULL DROP TABLE #inc_eeal;	
 		SELECT
 
@@ -55,7 +65,7 @@ WHILE @i < @total --(@total-20)
 			ON ee.client_id = c.client_id
 		WHERE ee.active = 't'
 
---	INSERT INTO SPReports.dbo.EERAnswerLink (entry_exit_review_id, question_code, answer_id)
+--	INSERT INTO SPReports.dbo.EERAnswerLink (entry_exit_review_id, question_code, answer_id) this stuff is for the initial load
 		IF OBJECT_ID('tempdb..#inc_eeral') IS NOT NULL DROP TABLE #inc_eeral;
 		SELECT
 
@@ -79,7 +89,7 @@ WHILE @i < @total --(@total-20)
 			ON eer.entry_exit_id = ee.entry_exit_id
 		WHERE eer.active = 't'
 
-	SELECT * FROM #inc_eeal
+--	SELECT * FROM #inc_eeal --this text is for testing
 
 --these rows get inserted
 INSERT INTO EEAnswerLink (entry_exit_id, question_code, entry_answer_id,exit_answer_id,active)
@@ -139,3 +149,4 @@ SET active = 0
 	SET @i = @i + 1
 END
 
+END
